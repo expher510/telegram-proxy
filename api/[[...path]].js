@@ -2,7 +2,6 @@ export default async function handler(req, res) {
   const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
   const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
   const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
-
   const path = req.url.split("?")[0];
 
   // ============================================
@@ -12,11 +11,8 @@ export default async function handler(req, res) {
     if (req.method !== "POST") {
       return res.status(200).json({ status: "🟢 Webhook endpoint ready" });
     }
-
     const body = req.body;
     console.log("📨 Telegram → n8n:", JSON.stringify(body));
-
-    // ✅ بعت لـ n8n وانتظر الرد
     try {
       const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
         method: "POST",
@@ -29,8 +25,32 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error("❌ Forward to n8n failed:", err.message);
     }
-
     return res.status(200).json({ ok: true });
+  }
+
+  // ============================================
+  // 2️⃣ استقبال من n8n وإرساله لـ Telegram API
+  // ============================================
+  if (path === "/api/telegram") {
+    if (req.method !== "POST") {
+      return res.status(200).json({ status: "🟢 Telegram proxy endpoint ready" });
+    }
+    const method = req.query.method || "sendMessage";
+    const body = req.body;
+    try {
+      console.log(`📤 n8n → Telegram [${method}]:`, JSON.stringify(body));
+      const tgResponse = await fetch(`${TELEGRAM_API}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const tgData = await tgResponse.json();
+      console.log(`✅ Telegram Response:`, JSON.stringify(tgData));
+      return res.status(200).json(tgData);
+    } catch (err) {
+      console.error("❌ Forward to Telegram failed:", err.message);
+      return res.status(500).json({ ok: false, error: err.message });
+    }
   }
 
   // ============================================
@@ -78,52 +98,45 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "❌ Failed to download file" });
       }
 
-      // الخطوة 3 — بعت الملف لـ n8n كـ binary
-      const contentType = fileRes.headers.get("content-type") || "application/octet-stream";
+      // الخطوة 3 — حدد نوع الملف من الـ extension
+      const ext = file_path.split(".").pop().toLowerCase();
+      const mimeTypes = {
+        // فيديو
+        mp4: "video/mp4",
+        mov: "video/quicktime",
+        avi: "video/x-msvideo",
+        // صوت
+        mp3: "audio/mpeg",
+        ogg: "audio/ogg",
+        oga: "audio/ogg",
+        m4a: "audio/mp4",
+        wav: "audio/wav",
+        // صورة
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        gif: "image/gif",
+        webp: "image/webp",
+        // ملفات
+        pdf: "application/pdf",
+        zip: "application/zip",
+      };
+      const contentType = mimeTypes[ext] || fileRes.headers.get("content-type") || "application/octet-stream";
+      const fileName = file_path.split("/").pop();
       const fileBuffer = await fileRes.arrayBuffer();
 
       console.log(`✅ File downloaded [${contentType}] size: ${fileBuffer.byteLength} bytes`);
 
       // ابعت الملف كـ binary response
       res.setHeader("Content-Type", contentType);
-      res.setHeader("Content-Disposition", `attachment; filename="${file_path.split("/").pop()}"`);
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
       res.setHeader("X-File-Path", file_path);
+      res.setHeader("X-File-Name", fileName);
       return res.send(Buffer.from(fileBuffer));
 
     } catch (err) {
       console.error("❌ File proxy error:", err.message);
       return res.status(500).json({ error: err.message });
-    }
-  }
-
-  // ============================================
-  // 2️⃣ استقبال من n8n وإرساله لـ Telegram API
-  // ============================================
-  if (path === "/api/telegram") {
-    if (req.method !== "POST") {
-      return res.status(200).json({ status: "🟢 Telegram proxy endpoint ready" });
-    }
-
-    const method = req.query.method || "sendMessage";
-    const body = req.body;
-
-    try {
-      console.log(`📤 n8n → Telegram [${method}]:`, JSON.stringify(body));
-
-      const tgResponse = await fetch(`${TELEGRAM_API}/${method}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const tgData = await tgResponse.json();
-      console.log(`✅ Telegram Response:`, JSON.stringify(tgData));
-
-      return res.status(200).json(tgData);
-
-    } catch (err) {
-      console.error("❌ Forward to Telegram failed:", err.message);
-      return res.status(500).json({ ok: false, error: err.message });
     }
   }
 
@@ -134,5 +147,10 @@ export default async function handler(req, res) {
     status: "🟢 Proxy is running",
     n8n_url: N8N_WEBHOOK_URL ? "✅ Set" : "❌ Missing",
     telegram_token: TELEGRAM_TOKEN ? "✅ Set" : "❌ Missing",
+    endpoints: {
+      webhook: "POST /api/webhook ← Telegram → n8n",
+      telegram: "POST /api/telegram?method=xxx ← n8n → Telegram",
+      file: "GET /api/file?file_id=xxx ← n8n تحميل ملف", // [جديد]
+    },
   });
 }
