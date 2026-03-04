@@ -34,6 +34,69 @@ export default async function handler(req, res) {
   }
 
   // ============================================
+  // 3️⃣ [جديد] تحميل ملف من Telegram وبعته لـ n8n
+  // GET /api/file?file_id=xxxxx
+  // ============================================
+  if (path === "/api/file") {
+    // لازم يكون GET
+    if (req.method !== "GET") {
+      return res.status(405).json({ error: "Method not allowed, use GET" });
+    }
+
+    const file_id = req.query.file_id;
+
+    // تأكد إن file_id موجود
+    if (!file_id) {
+      return res.status(400).json({ error: "❌ file_id is required" });
+    }
+
+    try {
+      console.log(`📥 Downloading file_id: ${file_id}`);
+
+      // الخطوة 1 — جيب الـ file_path من Telegram
+      const getFileRes = await fetch(`${TELEGRAM_API}/getFile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_id }),
+      });
+      const getFileData = await getFileRes.json();
+
+      if (!getFileData.ok) {
+        console.error("❌ getFile failed:", JSON.stringify(getFileData));
+        return res.status(400).json({ error: "❌ Failed to get file path", details: getFileData });
+      }
+
+      const file_path = getFileData.result.file_path;
+      console.log(`📁 file_path: ${file_path}`);
+
+      // الخطوة 2 — حمّل الملف الفعلي من Telegram
+      const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${file_path}`;
+      const fileRes = await fetch(fileUrl);
+
+      if (!fileRes.ok) {
+        console.error("❌ File download failed:", fileRes.status);
+        return res.status(500).json({ error: "❌ Failed to download file" });
+      }
+
+      // الخطوة 3 — بعت الملف لـ n8n كـ binary
+      const contentType = fileRes.headers.get("content-type") || "application/octet-stream";
+      const fileBuffer = await fileRes.arrayBuffer();
+
+      console.log(`✅ File downloaded [${contentType}] size: ${fileBuffer.byteLength} bytes`);
+
+      // ابعت الملف كـ binary response
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${file_path.split("/").pop()}"`);
+      res.setHeader("X-File-Path", file_path);
+      return res.send(Buffer.from(fileBuffer));
+
+    } catch (err) {
+      console.error("❌ File proxy error:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // ============================================
   // 2️⃣ استقبال من n8n وإرساله لـ Telegram API
   // ============================================
   if (path === "/api/telegram") {
