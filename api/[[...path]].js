@@ -13,27 +13,24 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: "🟢 Webhook endpoint ready" });
     }
 
-    // ✅ احفظ الـ body قبل أي حاجة
     const body = req.body;
     console.log("📨 Telegram → n8n:", JSON.stringify(body));
 
-    // ✅ رد على Telegram فوراً عشان ميـ timeout ش
-    res.status(200).json({ ok: true });
-
-    // ✅ بعت لـ n8n في الـ background
+    // ✅ بعت لـ n8n وانتظر الرد
     try {
-      const response = await fetch(N8N_WEBHOOK_URL, {
+      const n8nResponse = await fetch(N8N_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(55000),
       });
-      const text = await response.text();
-      console.log(`✅ n8n Response [${response.status}]:`, text);
+      const n8nData = await n8nResponse.text();
+      console.log(`✅ n8n Response [${n8nResponse.status}]:`, n8nData);
     } catch (err) {
       console.error("❌ Forward to n8n failed:", err.message);
     }
 
-    return;
+    return res.status(200).json({ ok: true });
   }
 
   // ============================================
