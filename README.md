@@ -2,8 +2,7 @@
 
 وسيط بين Telegram Bot API و n8n على HuggingFace — مبني على Vercel Serverless
 
-[![Vercel](https://vercel.com/button)]([https://vercel.com/new](https://vercel.com/alialpop510-1872s-projects))
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Vercel](https://vercel.com/button)](https://vercel.com/alialpop510-1872s-projects)[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![HuggingFace](https://img.shields.io/badge/🤗-alisaadeng-yellow)](https://huggingface.co/alisaadeng)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord)](https://discord.gg/ZsqyhvAq)
 
@@ -264,5 +263,6 @@ Body   : Binary
 ## 📄 License
 
 MIT — مجاني للاستخدام والتعديل ✅
+
 
 
