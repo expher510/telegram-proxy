@@ -1,11 +1,11 @@
 # 📡 Telegram Proxy
 
-> وسيط بين Telegram Bot API و n8n على HuggingFace — مبني على Vercel Serverless
+وسيط بين Telegram Bot API و n8n على HuggingFace — مبني على Vercel Serverless
 
-![Vercel](https://img.shields.io/badge/Vercel-Serverless-black?logo=vercel)
-![Telegram](https://img.shields.io/badge/Telegram-Bot%20API-blue?logo=telegram)
-![n8n](https://img.shields.io/badge/n8n-HuggingFace-orange?logo=n8n)
-![License](https://img.shields.io/badge/License-MIT-green)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![HuggingFace](https://img.shields.io/badge/🤗-alisaadeng-yellow)](https://huggingface.co/alisaadeng)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord)](https://discord.gg/ZsqyhvAq)
 
 ---
 
@@ -27,24 +27,37 @@ n8n → Proxy (Vercel) → Telegram API
 ## 🚀 Deploy على Vercel
 
 ### 1 — Clone الـ Repo
+
 ```bash
-git clone https://github.com/YOUR_USERNAME/telegram-proxy
+git clone https://github.com/expher510/telegram-proxy
 cd telegram-proxy
 ```
 
 ### 2 — Deploy على Vercel
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/telegram-proxy)
+
+```bash
+vercel deploy
+```
 
 ### 3 — Environment Variables
+
 | Key | Value |
 |-----|-------|
 | `TELEGRAM_TOKEN` | التوكن من BotFather |
 | `N8N_WEBHOOK_URL` | `https://YOUR_SPACE.hf.space/webhook/YOUR_ID` |
 
 ### 4 — اربط Telegram بالـ Proxy
+
 افتح في المتصفح:
+
 ```
 https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://YOUR-PROXY.vercel.app/api/webhook
+```
+
+أو استخدم الـ endpoint المدمج:
+
+```
+https://YOUR-PROXY.vercel.app/api/setwebhook
 ```
 
 ---
@@ -52,7 +65,7 @@ https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://YOUR-PROXY.vercel.app
 ## 📌 الـ Endpoints
 
 ### 1️⃣ `POST /api/webhook`
-> استقبال من Telegram وتوجيهه لـ n8n
+استقبال من Telegram وتوجيهه لـ n8n
 
 ```
 Telegram → Proxy → n8n
@@ -61,13 +74,14 @@ Telegram → Proxy → n8n
 ---
 
 ### 2️⃣ `POST /api/telegram?method=METHOD`
-> إرسال من n8n لـ Telegram API
+إرسال من n8n لـ Telegram API
 
 ```
 n8n → Proxy → Telegram API
 ```
 
-**في n8n HTTP Request Node:**
+في n8n HTTP Request Node:
+
 ```
 Method : POST
 URL    : https://YOUR-PROXY.vercel.app/api/telegram?method=sendMessage
@@ -77,7 +91,9 @@ Body   : {
          }
 ```
 
-**الـ Methods المتاحة:**
+#### الـ Methods المتاحة:
+
+**رسائل أساسية:**
 
 | Method | الاستخدام |
 |--------|-----------|
@@ -88,29 +104,68 @@ Body   : {
 | `sendAudio` | صوت بـ URL |
 | `sendVoice` | رسالة صوتية |
 | `sendAnimation` | GIF |
-| `sendMediaGroup` | البوم صور |
+| `sendSticker` | ستيكر |
+| `sendMediaGroup` | ألبوم صور |
+| `sendLocation` | موقع جغرافي |
+| `sendVenue` | مكان بعنوان |
+| `sendContact` | جهة اتصال |
+| `forwardMessage` | تحويل رسالة |
+| `copyMessage` | نسخ رسالة |
+
+**استطلاعات:**
+
+| Method | الاستخدام |
+|--------|-----------|
+| `sendPoll` | استطلاع رأي |
+| `sendPoll` (type: quiz) | اختبار بإجابة صحيحة |
+| `sendDice` | نرد أو إيموجي عشوائي 🎲 |
+
+**تعديل رسائل موجودة:**
+
+| Method | الاستخدام |
+|--------|-----------|
+| `editMessageText` | تعديل نص رسالة |
+| `editMessageCaption` | تعديل كابشن ملف/صورة |
+| `editMessageReplyMarkup` | تعديل الأزرار |
 | `deleteMessage` | حذف رسالة |
-| `editMessageText` | تعديل رسالة |
 | `pinChatMessage` | تثبيت رسالة |
-| `answerCallbackQuery` | رد على زرار |
+| `unpinChatMessage` | إلغاء تثبيت رسالة |
+
+**Callback & Inline:**
+
+| Method | الاستخدام |
+|--------|-----------|
+| `answerCallbackQuery` | رد على ضغطة زر Inline |
+| `answerInlineQuery` | رد على inline query |
+| `sendChatAction` | إظهار "جاري الكتابة..." |
+
+**إدارة الجروب:**
+
+| Method | الاستخدام |
+|--------|-----------|
+| `banChatMember` | حظر عضو |
+| `unbanChatMember` | رفع الحظر |
+| `restrictChatMember` | تقييد صلاحيات عضو |
+| `promoteChatMember` | ترقية عضو لأدمن |
 
 ---
 
 ### 3️⃣ `GET /api/file?file_id=FILE_ID`
-> تحميل ملف من Telegram وبعته لـ n8n كـ Binary
+تحميل ملف من Telegram وبعته لـ n8n كـ Binary
 
 ```
 n8n → Proxy → Telegram Files → Binary
 ```
 
-**في n8n HTTP Request Node:**
+في n8n HTTP Request Node:
+
 ```
 Method          : GET
 URL             : https://YOUR-PROXY.vercel.app/api/file?file_id={{ $json.body.message.video_note.file_id }}
 Response Format : File (Binary)
 ```
 
-**الـ file_id بتاخده من:**
+الـ `file_id` بتاخده من:
 
 | النوع | المسار |
 |-------|--------|
@@ -118,28 +173,30 @@ Response Format : File (Binary)
 | فيديو | `message.video.file_id` |
 | فيديو دائري | `message.video_note.file_id` |
 | صوت مسجل | `message.voice.file_id` |
-| رسالة صوتية | `message.voice.file_id` |
+| رسالة صوتية | `message.audio.file_id` |
 | ملف | `message.document.file_id` |
+| ستيكر | `message.sticker.file_id` |
 
-> ⚠️ الحد الأقصى **20MB** — قيد من Telegram
+> ⚠️ الحد الأقصى 20MB — قيد من Telegram
 
 ---
 
 ### 4️⃣ `POST /api/upload`
-> رفع ملف Binary من n8n لـ Telegram
+رفع ملف Binary من n8n لـ Telegram
 
 ```
 n8n Binary → Proxy → Telegram
 ```
 
-**في n8n HTTP Request Node:**
+في n8n HTTP Request Node:
+
 ```
 Method : POST
 URL    : https://YOUR-PROXY.vercel.app/api/upload?method=sendDocument&chat_id=CHAT_ID&filename=data.json&mimetype=application/json
 Body   : Binary
 ```
 
-**الأنواع المتاحة:**
+الأنواع المتاحة:
 
 | Method | mimetype | النوع |
 |--------|----------|-------|
@@ -151,6 +208,33 @@ Body   : Binary
 | `sendAnimation` | `image/gif` | GIF |
 
 > ⚠️ لإرسال صورة بجودتها الأصلية → استخدم `sendDocument` مش `sendPhoto`
+
+---
+
+### 5️⃣ `GET /api/me`
+معلومات البوت
+
+```json
+{ "ok": true, "result": { "id": 123, "username": "your_bot", ... } }
+```
+
+---
+
+### 6️⃣ `GET /api/webhookinfo`
+التحقق من حالة الـ Webhook
+
+```json
+{ "ok": true, "result": { "url": "https://...", "pending_update_count": 0 } }
+```
+
+---
+
+### 7️⃣ `GET /api/deletewebhook`
+حذف الـ Webhook
+
+```json
+{ "ok": true, "telegram": { "ok": true, "result": true } }
+```
 
 ---
 
@@ -167,10 +251,13 @@ Body   : Binary
 
 ## 🔗 روابط مهمة
 
-- [Vercel Dashboard](https://vercel.com/dashboard)
+- [Vercel Dashboard](https://vercel.com/alialpop510-1872s-projects)
 - [BotFather](https://t.me/BotFather)
 - [Telegram Bot API Docs](https://core.telegram.org/bots/api)
 - [n8n Docs](https://docs.n8n.io)
+- [🤗 HuggingFace](https://huggingface.co/alisaadeng)
+- [💬 Discord](https://discord.gg/ZsqyhvAq)
+- [GitHub](https://github.com/expher510/telegram-proxy)
 
 ---
 
