@@ -1,7 +1,6 @@
 # 📡 Telegram Proxy
 
 وسيط بين Telegram Bot API و n8n على HuggingFace — مبني على Vercel Serverless
-[![Deploy on Vercel](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com/alialpop510-1872s-projects)
 [![HuggingFace](https://img.shields.io/badge/🤗-alisaadeng-yellow)](https://huggingface.co/alisaadeng)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord)](https://discord.gg/ZsqyhvAq)
 
@@ -262,6 +261,7 @@ Body   : Binary
 ## 📄 License
 
 MIT — مجاني للاستخدام والتعديل ✅
+
 
 
 
