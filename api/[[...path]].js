@@ -65,31 +65,163 @@ export default async function handler(req, res) {
   // ============================================
   if (path === "/api/telegram") {
     if (req.method !== "POST") {
-@@ -79,7 +106,6 @@
+      return res.status(200).json({ status: "🟢 Telegram proxy endpoint ready" });
+    }
+
+    const method = req.query.method || "sendMessage";
+    const body   = req.body;
+
+    try {
+      console.log(`📤 n8n → Telegram [${method}]:`, JSON.stringify(body));
+
+      const tgResponse = await fetch(`${TELEGRAM_API}/${method}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const tgData = await tgResponse.json();
+      console.log("✅ Telegram Response:", JSON.stringify(tgData));
+      return res.status(200).json(tgData);
+    } catch (err) {
+      console.error("❌ Forward to Telegram failed:", err.message);
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  }
+
+  // ============================================
+  // 3️⃣ تحميل ملف من Telegram وبعته لـ n8n
+  // GET /api/file?file_id=xxxxx
+  // ============================================
+  if (path === "/api/file") {
+    if (req.method !== "GET") {
+      return res.status(405).json({ error: "Method not allowed, use GET" });
+    }
+
+    const file_id = req.query.file_id;
+    if (!file_id) {
+      return res.status(400).json({ error: "❌ file_id is required" });
+    }
+
     try {
       console.log(`📥 Downloading file_id: ${file_id}`);
 
-      // الخطوة 1 — جيب الـ file_path من Telegram
       const getFileRes  = await fetch(`${TELEGRAM_API}/getFile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-@@ -95,7 +121,6 @@
+        body: JSON.stringify({ file_id }),
+      });
+      const getFileData = await getFileRes.json();
+
+      if (!getFileData.ok) {
+        console.error("❌ getFile failed:", JSON.stringify(getFileData));
+        return res.status(400).json({ error: "❌ Failed to get file path", details: getFileData });
+      }
+
       const file_path = getFileData.result.file_path;
       console.log(`📁 file_path: ${file_path}`);
 
-      // الخطوة 2 — حمّل الملف الفعلي من Telegram
       const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${file_path}`;
       const fileRes = await fetch(fileUrl);
 
-@@ -104,7 +129,6 @@
+      if (!fileRes.ok) {
+        console.error("❌ File download failed:", fileRes.status);
         return res.status(500).json({ error: "❌ Failed to download file" });
       }
 
-      // الخطوة 3 — حدد نوع الملف من الـ extension
       const ext = file_path.split(".").pop().toLowerCase();
       const mimeTypes = {
         mp4:  "video/mp4",
-@@ -201,6 +225,48 @@
+        mov:  "video/quicktime",
+        avi:  "video/x-msvideo",
+        mp3:  "audio/mpeg",
+        ogg:  "audio/ogg",
+        oga:  "audio/ogg",
+        m4a:  "audio/mp4",
+        wav:  "audio/wav",
+        jpg:  "image/jpeg",
+        jpeg: "image/jpeg",
+        png:  "image/png",
+        gif:  "image/gif",
+        webp: "image/webp",
+        pdf:  "application/pdf",
+        zip:  "application/zip",
+        json: "application/json",
+      };
+
+      const contentType = mimeTypes[ext] || fileRes.headers.get("content-type") || "application/octet-stream";
+      const fileName    = file_path.split("/").pop();
+      const fileBuffer  = await fileRes.arrayBuffer();
+
+      console.log(`✅ File downloaded [${contentType}] size: ${fileBuffer.byteLength} bytes`);
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+      res.setHeader("X-File-Path", file_path);
+      res.setHeader("X-File-Name", fileName);
+      return res.send(Buffer.from(fileBuffer));
+    } catch (err) {
+      console.error("❌ File proxy error:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  // ============================================
+  // 4️⃣ رفع ملف Binary من n8n لـ Telegram
+  // POST /api/upload?method=sendDocument&chat_id=xxx&filename=data.json&mimetype=application/json
+  // ============================================
+  if (path === "/api/upload") {
+    if (req.method !== "POST") {
+      return res.status(200).json({ status: "🟢 Upload endpoint ready" });
+    }
+
+    const method   = req.query.method   || "sendDocument";
+    const chat_id  = req.query.chat_id;
+    const caption  = req.query.caption  || "";
+    const filename = req.query.filename || "file";
+    const mimetype = req.query.mimetype || "application/octet-stream";
+
+    if (!chat_id) {
+      return res.status(400).json({ error: "❌ chat_id is required in query params" });
+    }
+
+    try {
+      console.log(`📤 Uploading [${method}] → Telegram | chat_id: ${chat_id} | file: ${filename}`);
+
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const fileBuffer = Buffer.concat(chunks);
+
+      console.log(`📦 File size: ${fileBuffer.byteLength} bytes | type: ${mimetype}`);
+
+      const fieldNames = {
+        sendDocument : "document",
+        sendPhoto    : "photo",
+        sendVideo    : "video",
+        sendAudio    : "audio",
+        sendVoice    : "voice",
+        sendAnimation: "animation",
+        sendSticker  : "sticker",
+      };
+
+      const fieldName = fieldNames[method] || "document";
+
+      const formData = new FormData();
+      formData.append("chat_id", chat_id);
+      if (caption) formData.append("caption", caption);
+      formData.append(fieldName, new Blob([fileBuffer], { type: mimetype }), filename);
+
+      const tgResponse = await fetch(`${TELEGRAM_API}/${method}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const tgData = await tgResponse.json();
+      console.log("✅ Telegram Upload Response:", JSON.stringify(tgData));
+      return res.status(200).json(tgData);
+    } catch (err) {
+      console.error("❌ Upload error:", err.message);
+      return res.status(500).json({ ok: false, error: err.message });
     }
   }
 
@@ -138,14 +270,11 @@ export default async function handler(req, res) {
   // ============================================
   // Health Check
   // ============================================
-@@ -209,10 +275,55 @@
+  return res.status(200).json({
+    status: "🟢 Proxy is running",
     n8n_url       : N8N_WEBHOOK_URL ? "✅ Set" : "❌ Missing",
     telegram_token: TELEGRAM_TOKEN  ? "✅ Set" : "❌ Missing",
     endpoints: {
-      webhook : "POST /api/webhook",
-      telegram: "POST /api/telegram?method=xxx",
-      file    : "GET  /api/file?file_id=xxx",
-      upload  : "POST /api/upload?method=sendDocument&chat_id=xxx&filename=data.json&mimetype=application/json",
       // ── الاستقبال ──────────────────────────────
       webhook       : "POST /api/webhook",
 
